@@ -1,0 +1,64 @@
+{
+  "name": "promptpolish",
+  "displayName": "PromptPolish",
+  "description": "AI-powered prompt engineering for better Copilot and LLM results using full repository context",
+  "version": "0.2.0",
+  "publisher": "your-name",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:promptpolish.sidebar",
+    "onCommand:promptpolish.generatePrompt"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "promptpolish",
+          "title": "PromptPolish",
+          "icon": "media/prompt.png"
+        }
+      ]
+    },
+    "views": {
+      "promptpolish": [
+        {
+          "id": "promptpolish.sidebar",
+          "name": "AI Prompt Polisher",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "promptpolish.generatePrompt",
+        "title": "PromptPolish: Generate Polished Prompt",
+        "category": "PromptPolish"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production",
+    "vscode:prepublish": "npm run package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.109.0",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.4",
+    "node-fetch": "^3.3.2"
+  }
+}

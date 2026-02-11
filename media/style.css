@@ -1,0 +1,82 @@
+/* PromptPolish Extension Styles */
+
+body {
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-foreground);
+    background-color: var(--vscode-editor-background);
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.prompt-preview {
+    border: 1px solid var(--vscode-panel-border);
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 4px;
+    background-color: var(--vscode-editor-background);
+}
+
+.context-section {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: var(--vscode-editorWidget-background);
+    border-left: 3px solid var(--vscode-textLink-foreground);
+}
+
+.context-label {
+    font-weight: bold;
+    color: var(--vscode-textLink-foreground);
+    margin-bottom: 5px;
+}
+
+.prompt-input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 3px;
+}
+
+.button {
+    padding: 8px 16px;
+    margin: 5px;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.button:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+.button.secondary {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+.button.secondary:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+code {
+    font-family: var(--vscode-editor-font-family);
+    background-color: var(--vscode-textCodeBlock-background);
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+pre {
+    background-color: var(--vscode-textCodeBlock-background);
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
