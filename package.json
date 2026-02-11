@@ -22,7 +22,7 @@
         {
           "id": "promptpolish",
           "title": "PromptPolish",
-          "icon": "media/prompt.png"
+          "icon": "media/extension_icon.png"
         }
       ]
     },
@@ -52,6 +52,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.109.0",
+    "copy-webpack-plugin": "^13.0.1",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
     "webpack": "^5.104.1",

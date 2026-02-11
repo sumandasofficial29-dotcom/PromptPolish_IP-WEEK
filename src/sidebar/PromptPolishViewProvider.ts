@@ -12,12 +12,74 @@ export class PromptPolishViewProvider
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
+  /**
+   * Validates if the user prompt is meaningful and not gibberish
+   */
+  private validatePrompt(prompt: string): { valid: boolean; error?: string } {
+    // Check minimum length
+    if (prompt.length < 10) {
+      return { 
+        valid: false, 
+        error: "Prompt is too short. Please provide a more detailed description (at least 10 characters)."
+      };
+    }
+
+    // Check if prompt has reasonable word structure
+    const words = prompt.trim().split(/\s+/);
+    if (words.length < 3) {
+      return { 
+        valid: false, 
+        error: "Prompt should contain at least 3 words. Please provide more context."
+      };
+    }
+
+    // Check for gibberish patterns
+    // A meaningful prompt should have a reasonable vowel-to-consonant ratio
+    const vowelCount = (prompt.match(/[aeiouAEIOU]/g) || []).length;
+    const consonantCount = (prompt.match(/[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]/g) || []).length;
+    const totalLetters = vowelCount + consonantCount;
+    
+    if (totalLetters > 0) {
+      const vowelRatio = vowelCount / totalLetters;
+      // Typical English text has 35-45% vowels. Flag if too far outside this range
+      if (vowelRatio < 0.15 || vowelRatio > 0.7) {
+        return { 
+          valid: false, 
+          error: "Input appears to be gibberish. Please enter a meaningful prompt describing what you want to accomplish."
+        };
+      }
+    }
+
+    // Check for excessive consecutive consonants (common in gibberish)
+    const maxConsecutiveConsonants = (prompt.match(/[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]{7,}/g) || []).length;
+    if (maxConsecutiveConsonants > 0) {
+      return { 
+        valid: false, 
+        error: "Input appears to contain invalid patterns. Please enter a clear, meaningful prompt."
+      };
+    }
+
+    // Check if at least some common English words are present
+    const commonWords = /\b(the|a|an|and|or|but|is|are|was|were|be|been|have|has|had|do|does|did|will|would|could|should|can|may|might|must|i|you|he|she|it|we|they|this|that|these|those|what|which|who|when|where|why|how|make|create|build|add|remove|delete|update|fix|change|get|set|show|display|help|please|want|need|to|from|for|with|by|at|in|on|of)\b/i;
+    
+    if (!commonWords.test(prompt)) {
+      return { 
+        valid: false, 
+        error: "Input doesn't appear to be a valid English prompt. Please describe your task clearly."
+      };
+    }
+
+    return { valid: true };
+  }
+
   resolveWebviewView(view: vscode.WebviewView) {
     this._view = view;
 
     view.webview.options = {
       enableScripts: true,
-      localResourceRoots: [this.extensionUri]
+      localResourceRoots: [
+        vscode.Uri.joinPath(this.extensionUri, 'media')
+      ]
     };
 
     view.webview.html = this.getHtml(view.webview);
@@ -36,6 +98,16 @@ export class PromptPolishViewProvider
     if (!this._view) return;
 
     try {
+      // Validate prompt before processing
+      const validation = this.validatePrompt(userPrompt);
+      if (!validation.valid) {
+        this._view.webview.postMessage({
+          command: "error",
+          payload: validation.error
+        });
+        return;
+      }
+
       this._view.webview.postMessage({
         command: "loading",
         payload: true
@@ -75,11 +147,11 @@ export class PromptPolishViewProvider
 
   private getHtml(webview: vscode.Webview): string {
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "src/sidebar/promptpolish.css")
+      vscode.Uri.joinPath(this.extensionUri, "media", "style.css")
     );
     
     const iconUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "media/icon.png")
+      vscode.Uri.joinPath(this.extensionUri, "media", "sidebar_icon.png")
     );
 
     return `
@@ -88,6 +160,7 @@ export class PromptPolishViewProvider
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https: data:; script-src 'unsafe-inline' ${webview.cspSource};">
         <link href="${cssUri}" rel="stylesheet" />
         <style>
           * { box-sizing: border-box; }
@@ -212,7 +285,7 @@ export class PromptPolishViewProvider
       <body>
 
         <div class="header">
-          <h2><img src="${iconUri}" alt="PromptPolish" /> PromptPolish</h2>
+          <h2><img id="headerIcon" src="${iconUri}" alt="PromptPolish" onerror="this.style.display='none'" /> 🚀 PromptPolish</h2>
           <p>Transform your prompts with AI-powered context and engineering best practices</p>
         </div>
 
@@ -255,6 +328,10 @@ export class PromptPolishViewProvider
           const inputArea = document.getElementById("input");
           const outputArea = document.getElementById("output");
           const refinementSelect = document.getElementById("refinement");
+          const headerIcon = document.getElementById("headerIcon");
+
+          // Debug: Log the icon source
+          console.log("Icon URI:", headerIcon.src);
 
           generateBtn.onclick = () => {
             const userPrompt = inputArea.value.trim();

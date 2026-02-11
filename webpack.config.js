@@ -1,4 +1,5 @@
 const path = require('path');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   mode: 'none',
@@ -23,5 +24,12 @@ module.exports = {
   },
   externals: {
     vscode: 'commonjs vscode'
-  }
+  },
+  plugins: [
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: 'media', to: 'media' }
+      ]
+    })
+  ]
 };
