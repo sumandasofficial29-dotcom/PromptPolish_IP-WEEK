@@ -10,10 +10,10 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
+				"--extensionDevelopmentPath=${workspaceFolder}/PromptPolish_IP-WEEK"
 			],
 			"outFiles": [
-				"${workspaceFolder}/dist/**/*.js"
+				"${workspaceFolder}/PromptPolish_IP-WEEK/dist/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
 		}

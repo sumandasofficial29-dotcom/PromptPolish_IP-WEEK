@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { analyzeRepo } from "../repo/repoAnalyzer";
 import { getEditorContext } from "../utils/editorContext";
 import { generatePolishedPrompt } from "../ai/promptEngine";
+import { analyzeRisk } from "../guardrails/riskAnalyzer";
+import { RefinementLevel } from "../ai/strictnessProfiles";
 
 export class PromptPolishViewProvider
   implements vscode.WebviewViewProvider {
@@ -22,16 +24,18 @@ export class PromptPolishViewProvider
 
     view.webview.onDidReceiveMessage(async (msg) => {
       if (msg.command === "generate") {
-        await this.generatePrompt(msg.payload);
+        await this.generatePrompt(
+          msg.payload.prompt,
+          msg.payload.strictness
+        );
       }
     });
   }
 
-  async generatePrompt(userPrompt: string) {
+  async generatePrompt(userPrompt: string, strictness: RefinementLevel) {
     if (!this._view) return;
 
     try {
-      // Show loading state
       this._view.webview.postMessage({
         command: "loading",
         payload: true
@@ -40,16 +44,22 @@ export class PromptPolishViewProvider
       const repoContext = await analyzeRepo();
       const editorContext = getEditorContext();
 
+      // 🔎 STEP 2 — Risk Guardrail
+      const riskReport = analyzeRisk(userPrompt, repoContext);
+
       const finalPrompt = await generatePolishedPrompt(
         userPrompt,
         repoContext,
-        editorContext
+        editorContext,
+        strictness,
+        riskReport
       );
 
       this._view.webview.postMessage({
         command: "showPrompt",
         payload: finalPrompt
       });
+
     } catch (error: any) {
       this._view.webview.postMessage({
         command: "error",
@@ -67,6 +77,10 @@ export class PromptPolishViewProvider
     const cssUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "src/sidebar/promptpolish.css")
     );
+    
+    const iconUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media/icon.png")
+    );
 
     return `
       <!DOCTYPE html>
@@ -76,66 +90,45 @@ export class PromptPolishViewProvider
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link href="${cssUri}" rel="stylesheet" />
         <style>
-          * {
-            box-sizing: border-box;
-          }
-          
+          * { box-sizing: border-box; }
+
           body {
             padding: 16px;
             font-family: var(--vscode-font-family);
             color: var(--vscode-foreground);
             margin: 0;
           }
-          
+
           h2 {
             margin: 0 0 8px 0;
             font-size: 18px;
             font-weight: 600;
-            color: var(--vscode-foreground);
+            display: flex;
+            align-items: center;
+            gap: 8px;
           }
-          
+
+          h2 img {
+            width: 24px;
+            height: 24px;
+          }
+
           p {
             margin: 0 0 16px 0;
             color: var(--vscode-descriptionForeground);
             font-size: 13px;
           }
-          
+
           label {
             display: block;
             margin-top: 16px;
             margin-bottom: 6px;
             font-weight: 500;
             font-size: 13px;
-            color: var(--vscode-foreground);
           }
-          
-          button {
-            padding: 10px 16px;
-            margin: 16px 0;
-            cursor: pointer;
+
+          textarea, select {
             width: 100%;
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 2px;
-            font-size: 13px;
-            font-weight: 500;
-            transition: background-color 0.2s;
-          }
-          
-          button:hover:not(:disabled) {
-            background-color: var(--vscode-button-hoverBackground);
-          }
-          
-          button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-          
-          textarea {
-            width: 100%;
-            min-height: 120px;
-            margin: 0;
             padding: 10px;
             font-family: var(--vscode-editor-font-family);
             font-size: 13px;
@@ -147,31 +140,37 @@ export class PromptPolishViewProvider
             resize: vertical;
             outline: none;
           }
-          
-          textarea:focus {
+
+          textarea:focus, select:focus {
             border-color: var(--vscode-focusBorder);
             outline: 1px solid var(--vscode-focusBorder);
           }
-          
-          textarea::placeholder {
-            color: var(--vscode-input-placeholderForeground);
+
+          #input { min-height: 100px; }
+          #output { min-height: 150px; }
+
+          button {
+            padding: 10px 16px;
+            margin: 16px 0;
+            cursor: pointer;
+            width: 100%;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 2px;
+            font-size: 13px;
+            font-weight: 500;
           }
-          
-          #input {
-            min-height: 100px;
+
+          button:hover:not(:disabled) {
+            background-color: var(--vscode-button-hoverBackground);
           }
-          
-          #output {
-            min-height: 150px;
-            background-color: var(--vscode-input-background);
-            border: 1px solid var(--vscode-input-border);
+
+          button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
-          
-          #output[readonly] {
-            opacity: 0.9;
-            cursor: default;
-          }
-          
+
           .error {
             color: var(--vscode-errorForeground);
             background-color: var(--vscode-inputValidation-errorBackground);
@@ -181,7 +180,7 @@ export class PromptPolishViewProvider
             border-radius: 2px;
             font-size: 12px;
           }
-          
+
           .loading {
             color: var(--vscode-descriptionForeground);
             padding: 8px 0;
@@ -189,22 +188,17 @@ export class PromptPolishViewProvider
             font-size: 13px;
             font-style: italic;
           }
-          
-          .section {
-            margin-bottom: 20px;
-          }
-          
-          .header {
-            margin-bottom: 20px;
-          }
-          
+
+          .section { margin-bottom: 20px; }
+          .header { margin-bottom: 20px; }
+
           .output-controls {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 6px;
           }
-          
+
           .copy-btn {
             padding: 4px 12px;
             font-size: 11px;
@@ -213,16 +207,13 @@ export class PromptPolishViewProvider
             background-color: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
           }
-          
-          .copy-btn:hover:not(:disabled) {
-            background-color: var(--vscode-button-secondaryHoverBackground);
-          }
         </style>
       </head>
       <body>
+
         <div class="header">
-          <h2>🎨 PromptPolish</h2>
-          <p>AI-powered prompt refinement for better results</p>
+          <h2><img src="${iconUri}" alt="PromptPolish" /> PromptPolish</h2>
+          <p>Transform your prompts with AI-powered context and engineering best practices</p>
         </div>
 
         <div class="section">
@@ -230,9 +221,21 @@ export class PromptPolishViewProvider
           <textarea id="input" placeholder="Type your prompt here..." spellcheck="true"></textarea>
         </div>
 
+        <div class="section">
+          <label for="refinement">Refinement Level:</label>
+          <select id="refinement">
+            <option value="BASIC">⚡ Basic</option>
+            <option value="STANDARD">⭐ Standard</option>
+            <option value="ADVANCED" selected>🚀 Advanced</option>
+          </select>
+        </div>
+
         <button id="generate">✨ Generate Polished Prompt</button>
-        
-        <div id="status" class="loading" style="display:none;">⏳ Generating your polished prompt...</div>
+
+        <div id="status" class="loading" style="display:none;">
+          ⏳ Generating your polished prompt...
+        </div>
+
         <div id="error" class="error" style="display:none;"></div>
 
         <div class="section">
@@ -251,28 +254,32 @@ export class PromptPolishViewProvider
           const errorDiv = document.getElementById("error");
           const inputArea = document.getElementById("input");
           const outputArea = document.getElementById("output");
+          const refinementSelect = document.getElementById("refinement");
 
           generateBtn.onclick = () => {
-            console.log("Generate button clicked");
             const userPrompt = inputArea.value.trim();
-            
+
             if (!userPrompt) {
               errorDiv.textContent = "⚠️ Please enter a prompt first";
               errorDiv.style.display = "block";
               return;
             }
-            
+
             errorDiv.style.display = "none";
             copyBtn.style.display = "none";
-            vscode.postMessage({ 
+
+            vscode.postMessage({
               command: "generate",
-              payload: userPrompt
+              payload: {
+                prompt: userPrompt,
+                strictness: refinementSelect.value
+              }
             });
           };
 
           copyBtn.onclick = () => {
             outputArea.select();
-            document.execCommand('copy');
+            document.execCommand("copy");
             copyBtn.textContent = "✓ Copied!";
             setTimeout(() => {
               copyBtn.textContent = "📋 Copy";
@@ -281,7 +288,6 @@ export class PromptPolishViewProvider
 
           window.addEventListener("message", event => {
             const message = event.data;
-            console.log("Received message:", message);
 
             switch(message.command) {
               case "loading":
@@ -295,13 +301,13 @@ export class PromptPolishViewProvider
                   generateBtn.disabled = false;
                 }
                 break;
-              
+
               case "showPrompt":
                 outputArea.value = message.payload;
                 errorDiv.style.display = "none";
                 copyBtn.style.display = "inline-block";
                 break;
-              
+
               case "error":
                 errorDiv.textContent = "❌ Error: " + message.payload;
                 errorDiv.style.display = "block";
@@ -310,6 +316,7 @@ export class PromptPolishViewProvider
             }
           });
         </script>
+
       </body>
       </html>
     `;
